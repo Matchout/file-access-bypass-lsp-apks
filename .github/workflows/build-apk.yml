@@ -201,7 +201,7 @@ jobs:
           cat > app/src/main/res/values/strings.xml <<'EOF'
           <resources>
               <string name="app_name">File Access Bypass LSP</string>
-              <string name="xposed_description">Bypass selected apps' all-files-access checks without granting real storage expansion.</string>
+              <string name="xposed_description">Bypass selected app all-files-access checks without granting real storage expansion.</string>
           </resources>
           EOF
 
