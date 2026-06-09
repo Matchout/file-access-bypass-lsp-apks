@@ -93,8 +93,8 @@ jobs:
                   applicationId "io.github.fileaccess.bypass.lsp"
                   minSdk 23
                   targetSdk 36
-                  versionCode 1
-                  versionName "0.1.0"
+                  versionCode 2
+                  versionName "0.1.1"
               }
 
               buildTypes {
@@ -144,6 +144,13 @@ jobs:
                       return result;
                   }
               }
+
+              // fix: XposedHelpers.findAndHookMethod 的真实返回值是 XC_MethodHook.Unhook。
+              // 如果 stub 写成 void，编译出来的方法描述符会是 (... )V，
+              // 在 LSPosed 运行时会触发 NoSuchMethodError。
+              public static final class Unhook {
+                  public void unhook() {}
+              }
           }
           EOF
 
@@ -164,7 +171,10 @@ jobs:
           public final class XposedHelpers {
               private XposedHelpers() {}
 
-              public static void findAndHookMethod(Class<?> clazz, String methodName, Object... parameterTypesAndCallback) {}
+              // fix: 真实 API 返回 XC_MethodHook.Unhook，不是 void。
+              public static XC_MethodHook.Unhook findAndHookMethod(Class<?> clazz, String methodName, Object... parameterTypesAndCallback) {
+                  return null;
+              }
 
               public static Class<?> findClass(String className, ClassLoader classLoader) {
                   try {
