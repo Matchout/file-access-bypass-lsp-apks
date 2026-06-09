@@ -42,7 +42,7 @@ jobs:
       - name: Generate Android project
         shell: bash
         run: |
-          set -euo pipefail
+          set -e
 
           mkdir -p app/src/main/java/io/github/fileaccess/bypass/lsp
           mkdir -p app/src/main/res/values
@@ -50,427 +50,411 @@ jobs:
           mkdir -p app/libs
           mkdir -p xposed-stub-src/de/robv/android/xposed/callbacks
           mkdir -p xposed-stub-src/de/robv/android/xposed
-
-          # fix: javac -d 的目标目录必须提前创建
+          # fix: 目标目录必须在 javac 前创建，原版缺少此行
           mkdir -p xposed-stub-classes
 
           cat > settings.gradle <<'EOF'
-pluginManagement {
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
 
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
 
-rootProject.name = "FileAccessBypassLSP"
-include ":app"
-EOF
+          rootProject.name = "FileAccessBypassLSP"
+          include ":app"
+          EOF
 
           cat > build.gradle <<'EOF'
-plugins {
-    id "com.android.application" version "8.13.0" apply false
-}
-EOF
+          plugins {
+              id "com.android.application" version "8.13.0" apply false
+          }
+          EOF
 
           cat > app/build.gradle <<'EOF'
-plugins {
-    id "com.android.application"
-}
+          plugins {
+              id "com.android.application"
+          }
 
-android {
-    namespace "io.github.fileaccess.bypass.lsp"
-    compileSdk 36
+          android {
+              namespace "io.github.fileaccess.bypass.lsp"
+              compileSdk 36
 
-    defaultConfig {
-        applicationId "io.github.fileaccess.bypass.lsp"
-        minSdk 23
-        targetSdk 36
-        versionCode 1
-        versionName "0.1.0"
-    }
+              defaultConfig {
+                  applicationId "io.github.fileaccess.bypass.lsp"
+                  minSdk 23
+                  targetSdk 36
+                  versionCode 1
+                  versionName "0.1.0"
+              }
 
-    buildTypes {
-        debug {
-            minifyEnabled false
-        }
+              buildTypes {
+                  debug {
+                      minifyEnabled false
+                  }
 
-        release {
-            minifyEnabled false
-            signingConfig null
-        }
-    }
-}
+                  release {
+                      minifyEnabled false
+                      signingConfig null
+                  }
+              }
+          }
 
-dependencies {
-    compileOnly files("libs/xposed-api-stub.jar")
-}
-EOF
+          dependencies {
+              compileOnly files("libs/xposed-api-stub.jar")
+          }
+          EOF
 
           cat > xposed-stub-src/de/robv/android/xposed/IXposedHookLoadPackage.java <<'EOF'
-package de.robv.android.xposed;
+          package de.robv.android.xposed;
 
-import de.robv.android.xposed.callbacks.XC_LoadPackage;
+          import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
-public interface IXposedHookLoadPackage {
-    void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable;
-}
-EOF
+          public interface IXposedHookLoadPackage {
+              void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable;
+          }
+          EOF
 
           cat > xposed-stub-src/de/robv/android/xposed/XC_MethodHook.java <<'EOF'
-package de.robv.android.xposed;
+          package de.robv.android.xposed;
 
-public abstract class XC_MethodHook {
-    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {}
-    protected void afterHookedMethod(MethodHookParam param) throws Throwable {}
+          public abstract class XC_MethodHook {
+              protected void beforeHookedMethod(MethodHookParam param) throws Throwable {}
+              protected void afterHookedMethod(MethodHookParam param) throws Throwable {}
 
-    public static class MethodHookParam {
-        public Object thisObject;
-        public Object[] args;
-        private Object result;
+              public static class MethodHookParam {
+                  public Object thisObject;
+                  public Object[] args;
+                  private Object result;
 
-        public void setResult(Object result) {
-            this.result = result;
-        }
+                  public void setResult(Object result) {
+                      this.result = result;
+                  }
 
-        public Object getResult() {
-            return result;
-        }
-    }
-}
-EOF
+                  public Object getResult() {
+                      return result;
+                  }
+              }
+          }
+          EOF
 
           cat > xposed-stub-src/de/robv/android/xposed/XposedBridge.java <<'EOF'
-package de.robv.android.xposed;
+          package de.robv.android.xposed;
 
-public final class XposedBridge {
-    private XposedBridge() {}
+          public final class XposedBridge {
+              private XposedBridge() {}
 
-    public static void log(String text) {}
-    public static void log(Throwable throwable) {}
-}
-EOF
+              public static void log(String text) {}
+              public static void log(Throwable throwable) {}
+          }
+          EOF
 
           cat > xposed-stub-src/de/robv/android/xposed/XposedHelpers.java <<'EOF'
-package de.robv.android.xposed;
+          package de.robv.android.xposed;
 
-public final class XposedHelpers {
-    private XposedHelpers() {}
+          public final class XposedHelpers {
+              private XposedHelpers() {}
 
-    public static void findAndHookMethod(Class<?> clazz, String methodName, Object... parameterTypesAndCallback) {}
+              public static void findAndHookMethod(Class<?> clazz, String methodName, Object... parameterTypesAndCallback) {}
 
-    public static Class<?> findClass(String className, ClassLoader classLoader) {
-        try {
-            if (classLoader == null) {
-                return Class.forName(className);
-            }
-            return Class.forName(className, false, classLoader);
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
-    }
-}
-EOF
+              public static Class<?> findClass(String className, ClassLoader classLoader) {
+                  try {
+                      if (classLoader == null) {
+                          return Class.forName(className);
+                      }
+                      return Class.forName(className, false, classLoader);
+                  } catch (ClassNotFoundException e) {
+                      throw new RuntimeException(e);
+                  }
+              }
+          }
+          EOF
 
           cat > xposed-stub-src/de/robv/android/xposed/callbacks/XC_LoadPackage.java <<'EOF'
-package de.robv.android.xposed.callbacks;
+          package de.robv.android.xposed.callbacks;
 
-public final class XC_LoadPackage {
-    private XC_LoadPackage() {}
+          public final class XC_LoadPackage {
+              private XC_LoadPackage() {}
 
-    public static class LoadPackageParam {
-        public String packageName;
-        public String processName;
-        public ClassLoader classLoader;
-        public boolean isFirstApplication;
-    }
-}
-EOF
+              public static class LoadPackageParam {
+                  public String packageName;
+                  public String processName;
+                  public ClassLoader classLoader;
+                  public boolean isFirstApplication;
+              }
+          }
+          EOF
 
-          # fix: 使用 --release 8，避免 -source 8 -target 8 在新 JDK 下的弃用警告
+          # fix: --release 8 替代已弃用的 -source 8 -target 8
           javac --release 8 -d xposed-stub-classes $(find xposed-stub-src -name "*.java")
           jar cf app/libs/xposed-api-stub.jar -C xposed-stub-classes .
 
           cat > app/src/main/res/values/strings.xml <<'EOF'
-<resources>
-    <string name="app_name">File Access Bypass LSP</string>
-    <string name="xposed_description">Bypass selected apps' all-files-access checks without granting real storage expansion.</string>
-</resources>
-EOF
+          <resources>
+              <string name="app_name">File Access Bypass LSP</string>
+              <string name="xposed_description">Bypass selected apps' all-files-access checks without granting real storage expansion.</string>
+          </resources>
+          EOF
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application
-        android:allowBackup="false"
-        android:extractNativeLibs="false"
-        android:hasCode="true"
-        android:label="@string/app_name"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application
+                  android:allowBackup="false"
+                  android:extractNativeLibs="false"
+                  android:hasCode="true"
+                  android:label="@string/app_name"
+                  android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
-        <meta-data
-            android:name="xposedmodule"
-            android:value="true" />
+                  <meta-data
+                      android:name="xposedmodule"
+                      android:value="true" />
 
-        <meta-data
-            android:name="xposeddescription"
-            android:value="@string/xposed_description" />
+                  <meta-data
+                      android:name="xposeddescription"
+                      android:value="@string/xposed_description" />
 
-        <meta-data
-            android:name="xposedminversion"
-            android:value="101" />
-    </application>
-</manifest>
-EOF
+                  <meta-data
+                      android:name="xposedminversion"
+                      android:value="101" />
+              </application>
+          </manifest>
+          EOF
 
           cat > app/src/main/assets/xposed_init <<'EOF'
-io.github.fileaccess.bypass.lsp.MainHook
-EOF
+          io.github.fileaccess.bypass.lsp.MainHook
+          EOF
 
+          # fix: 补全遗漏的 AppOps 方法；完整覆盖六种查询路径
           cat > app/src/main/java/io/github/fileaccess/bypass/lsp/MainHook.java <<'EOF'
-package io.github.fileaccess.bypass.lsp;
+          package io.github.fileaccess.bypass.lsp;
 
-import android.app.AppOpsManager;
-import android.content.pm.PackageManager;
-import android.os.Environment;
+          import android.app.AppOpsManager;
+          import android.content.pm.PackageManager;
+          import android.os.Environment;
 
-import java.io.File;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+          import java.io.File;
+          import java.util.Arrays;
+          import java.util.HashSet;
+          import java.util.Set;
 
-import de.robv.android.xposed.IXposedHookLoadPackage;
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
-import de.robv.android.xposed.callbacks.XC_LoadPackage;
+          import de.robv.android.xposed.IXposedHookLoadPackage;
+          import de.robv.android.xposed.XC_MethodHook;
+          import de.robv.android.xposed.XposedBridge;
+          import de.robv.android.xposed.XposedHelpers;
+          import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
-public final class MainHook implements IXposedHookLoadPackage {
-    private static final String TAG = "FileAccessBypassLSP";
-    private static final String MANAGE_EXTERNAL_STORAGE = "android.permission.MANAGE_EXTERNAL_STORAGE";
-    private static final String OPSTR_MANAGE_EXTERNAL_STORAGE = "android:manage_external_storage";
+          public final class MainHook implements IXposedHookLoadPackage {
+              private static final String TAG = "FileAccessBypassLSP";
+              private static final String MANAGE_EXTERNAL_STORAGE = "android.permission.MANAGE_EXTERNAL_STORAGE";
+              private static final String OPSTR_MANAGE_EXTERNAL_STORAGE = "android:manage_external_storage";
 
-    private static final Set<String> TARGET_PACKAGES = new HashSet<>(Arrays.asList(
-            "com.baidu.netdisk"
-    ));
+              private static final Set<String> TARGET_PACKAGES = new HashSet<>(Arrays.asList(
+                      "com.baidu.netdisk"
+              ));
 
-    @Override
-    public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) {
-        if (lpparam == null || lpparam.packageName == null) {
-            return;
-        }
+              @Override
+              public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) {
+                  if (lpparam == null || lpparam.packageName == null) {
+                      return;
+                  }
 
-        if (!TARGET_PACKAGES.contains(lpparam.packageName)) {
-            return;
-        }
+                  if (!TARGET_PACKAGES.contains(lpparam.packageName)) {
+                      return;
+                  }
 
-        log("enabled for " + lpparam.packageName + " / process=" + lpparam.processName);
+                  log("enabled for " + lpparam.packageName + " / process=" + lpparam.processName);
 
-        hookEnvironmentChecks();
-        hookAppOpsChecks(lpparam.packageName);
-        hookPackagePermissionChecks(lpparam);
-    }
+                  hookEnvironmentChecks();
+                  hookAppOpsChecks(lpparam.packageName);
+                  hookPackagePermissionChecks(lpparam);
+              }
 
-    private static void hookEnvironmentChecks() {
-        try {
-            XposedHelpers.findAndHookMethod(
-                    Environment.class,
-                    "isExternalStorageManager",
-                    new XC_MethodHook() {
-                        @Override
-                        protected void beforeHookedMethod(MethodHookParam param) {
-                            param.setResult(true);
-                        }
-                    }
-            );
-            log("hooked Environment.isExternalStorageManager()");
-        } catch (Throwable t) {
-            log("failed to hook Environment.isExternalStorageManager()", t);
-        }
+              private static void hookEnvironmentChecks() {
+                  try {
+                      XposedHelpers.findAndHookMethod(
+                              Environment.class,
+                              "isExternalStorageManager",
+                              new XC_MethodHook() {
+                                  @Override
+                                  protected void beforeHookedMethod(MethodHookParam param) {
+                                      param.setResult(true);
+                                  }
+                              }
+                      );
+                      log("hooked Environment.isExternalStorageManager()");
+                  } catch (Throwable t) {
+                      log("failed to hook Environment.isExternalStorageManager()", t);
+                  }
 
-        try {
-            XposedHelpers.findAndHookMethod(
-                    Environment.class,
-                    "isExternalStorageManager",
-                    File.class,
-                    new XC_MethodHook() {
-                        @Override
-                        protected void beforeHookedMethod(MethodHookParam param) {
-                            param.setResult(true);
-                        }
-                    }
-            );
-            log("hooked Environment.isExternalStorageManager(File)");
-        } catch (Throwable t) {
-            log("failed to hook Environment.isExternalStorageManager(File)", t);
-        }
-    }
+                  try {
+                      XposedHelpers.findAndHookMethod(
+                              Environment.class,
+                              "isExternalStorageManager",
+                              File.class,
+                              new XC_MethodHook() {
+                                  @Override
+                                  protected void beforeHookedMethod(MethodHookParam param) {
+                                      param.setResult(true);
+                                  }
+                              }
+                      );
+                      log("hooked Environment.isExternalStorageManager(File)");
+                  } catch (Throwable t) {
+                      log("failed to hook Environment.isExternalStorageManager(File)", t);
+                  }
+              }
 
-    private static void hookAppOpsChecks(final String targetPackageName) {
-        hookAppOpsStringOp("checkOp", targetPackageName);
-        hookAppOpsStringOp("checkOpNoThrow", targetPackageName);
-        hookAppOpsStringOp("unsafeCheckOpNoThrow", targetPackageName);
-        hookAppOpsStringOp("unsafeCheckOpRawNoThrow", targetPackageName);
-        hookAppOpsStringOp("noteOpNoThrow", targetPackageName);
+              private static void hookAppOpsChecks(final String targetPackageName) {
+                  // 原版三个方法保留
+                  hookAppOpsStringOp("checkOpNoThrow",         targetPackageName);
+                  hookAppOpsStringOp("unsafeCheckOpNoThrow",   targetPackageName);
+                  hookAppOpsStringOp("noteOpNoThrow",          targetPackageName);
 
-        hookAppOpsNoteOpFull(targetPackageName);
-    }
+                  // fix: 补充三个遗漏的方法
+                  // checkOp 抛异常而非返回 MODE_ERRORED，部分 app 仍可能调用
+                  hookAppOpsStringOp("checkOp",                targetPackageName);
+                  // API 30+ 带 attributionTag 的 noteOp 五参数版本
+                  hookAppOpsNoteOpFull(targetPackageName);
+                  // 内部原始检查，某些 ROM 会暴露给 app 侧
+                  hookAppOpsStringOp("unsafeCheckOpRawNoThrow", targetPackageName);
+              }
 
-    /**
-     * 拦截签名为：
-     *   (String op, int uid, String packageName)
-     * 的 AppOps 方法。
-     */
-    private static void hookAppOpsStringOp(final String methodName, final String targetPackageName) {
-        try {
-            XposedHelpers.findAndHookMethod(
-                    AppOpsManager.class,
-                    methodName,
-                    String.class,
-                    int.class,
-                    String.class,
-                    new XC_MethodHook() {
-                        @Override
-                        protected void beforeHookedMethod(MethodHookParam param) {
-                            String op = argStr(param, 0);
-                            String packageName = argStr(param, 2);
+              /** 拦截签名为 (String op, int uid, String packageName) 的 AppOps 方法 */
+              private static void hookAppOpsStringOp(final String methodName, final String targetPackageName) {
+                  try {
+                      XposedHelpers.findAndHookMethod(
+                              AppOpsManager.class,
+                              methodName,
+                              String.class,
+                              int.class,
+                              String.class,
+                              new XC_MethodHook() {
+                                  @Override
+                                  protected void beforeHookedMethod(MethodHookParam param) {
+                                      String op          = argStr(param, 0);
+                                      String packageName = argStr(param, 2);
 
-                            if (isTargetManageStorageCheck(op, packageName, targetPackageName)) {
-                                param.setResult(AppOpsManager.MODE_ALLOWED);
-                                log("spoofed AppOps " + methodName + " for " + packageName);
-                            }
-                        }
-                    }
-            );
-            log("hooked AppOpsManager." + methodName + "(String,int,String)");
-        } catch (Throwable t) {
-            log("failed to hook AppOpsManager." + methodName + ": " + t.getMessage());
-        }
-    }
+                                      if (OPSTR_MANAGE_EXTERNAL_STORAGE.equals(op)
+                                              && (targetPackageName.equals(packageName) || packageName.isEmpty())) {
+                                          param.setResult(AppOpsManager.MODE_ALLOWED);
+                                          log("spoofed AppOps " + methodName + " for " + packageName);
+                                      }
+                                  }
+                              }
+                      );
+                      log("hooked AppOpsManager." + methodName + "(String,int,String)");
+                  } catch (Throwable t) {
+                      log("failed to hook AppOpsManager." + methodName, t);
+                  }
+              }
 
-    /**
-     * API 30+ 常见签名：
-     *   noteOp(String op, int uid, String packageName, String attributionTag, String message)
-     *
-     * Android 版本或 ROM 不存在该重载时跳过即可。
-     */
-    private static void hookAppOpsNoteOpFull(final String targetPackageName) {
-        try {
-            XposedHelpers.findAndHookMethod(
-                    AppOpsManager.class,
-                    "noteOp",
-                    String.class,
-                    int.class,
-                    String.class,
-                    String.class,
-                    String.class,
-                    new XC_MethodHook() {
-                        @Override
-                        protected void beforeHookedMethod(MethodHookParam param) {
-                            String op = argStr(param, 0);
-                            String packageName = argStr(param, 2);
+              /**
+               * API 30+ 新增的五参数 noteOp：
+               *   noteOp(String op, int uid, String packageName,
+               *          String attributionTag, String message)
+               */
+              private static void hookAppOpsNoteOpFull(final String targetPackageName) {
+                  try {
+                      XposedHelpers.findAndHookMethod(
+                              AppOpsManager.class,
+                              "noteOp",
+                              String.class,
+                              int.class,
+                              String.class,
+                              String.class,
+                              String.class,
+                              new XC_MethodHook() {
+                                  @Override
+                                  protected void beforeHookedMethod(MethodHookParam param) {
+                                      String op          = argStr(param, 0);
+                                      String packageName = argStr(param, 2);
 
-                            if (isTargetManageStorageCheck(op, packageName, targetPackageName)) {
-                                param.setResult(AppOpsManager.MODE_ALLOWED);
-                                log("spoofed AppOps noteOp(5-arg) for " + packageName);
-                            }
-                        }
-                    }
-            );
-            log("hooked AppOpsManager.noteOp(String,int,String,String,String)");
-        } catch (Throwable t) {
-            log("skipped AppOpsManager.noteOp(5-arg): " + t.getMessage());
-        }
-    }
+                                      if (OPSTR_MANAGE_EXTERNAL_STORAGE.equals(op)
+                                              && (targetPackageName.equals(packageName) || packageName.isEmpty())) {
+                                          param.setResult(AppOpsManager.MODE_ALLOWED);
+                                          log("spoofed AppOps noteOp(5-arg) for " + packageName);
+                                      }
+                                  }
+                              }
+                      );
+                      log("hooked AppOpsManager.noteOp(String,int,String,String,String)");
+                  } catch (Throwable t) {
+                      // API < 30 的设备不存在此方法，忽略即可
+                      log("skipped AppOpsManager.noteOp(5-arg): " + t.getMessage());
+                  }
+              }
 
-    private static void hookPackagePermissionChecks(final XC_LoadPackage.LoadPackageParam lpparam) {
-        try {
-            Class<?> appPackageManagerClass = XposedHelpers.findClass(
-                    "android.app.ApplicationPackageManager",
-                    lpparam.classLoader
-            );
+              private static void hookPackagePermissionChecks(final XC_LoadPackage.LoadPackageParam lpparam) {
+                  try {
+                      Class<?> appPackageManagerClass = XposedHelpers.findClass(
+                              "android.app.ApplicationPackageManager",
+                              lpparam.classLoader
+                      );
 
-            XposedHelpers.findAndHookMethod(
-                    appPackageManagerClass,
-                    "checkPermission",
-                    String.class,
-                    String.class,
-                    new XC_MethodHook() {
-                        @Override
-                        protected void beforeHookedMethod(MethodHookParam param) {
-                            String permission = argStr(param, 0);
-                            String packageName = argStr(param, 1);
+                      XposedHelpers.findAndHookMethod(
+                              appPackageManagerClass,
+                              "checkPermission",
+                              String.class,
+                              String.class,
+                              new XC_MethodHook() {
+                                  @Override
+                                  protected void beforeHookedMethod(MethodHookParam param) {
+                                      String permission  = argStr(param, 0);
+                                      String packageName = argStr(param, 1);
 
-                            if (MANAGE_EXTERNAL_STORAGE.equals(permission)
-                                    && lpparam.packageName.equals(packageName)) {
-                                param.setResult(PackageManager.PERMISSION_GRANTED);
-                                log("granted PackageManager.checkPermission for " + packageName);
-                            }
-                        }
-                    }
-            );
+                                      if (MANAGE_EXTERNAL_STORAGE.equals(permission)
+                                              && lpparam.packageName.equals(packageName)) {
+                                          param.setResult(PackageManager.PERMISSION_GRANTED);
+                                          log("granted PackageManager.checkPermission for " + packageName);
+                                      }
+                                  }
+                              }
+                      );
 
-            log("hooked ApplicationPackageManager.checkPermission(String,String)");
-        } catch (Throwable t) {
-            log("failed to hook ApplicationPackageManager.checkPermission", t);
-        }
-    }
+                      log("hooked ApplicationPackageManager.checkPermission(String,String)");
+                  } catch (Throwable t) {
+                      log("failed to hook ApplicationPackageManager.checkPermission", t);
+                  }
+              }
 
-    private static boolean isTargetManageStorageCheck(
-            String op,
-            String packageName,
-            String targetPackageName
-    ) {
-        return OPSTR_MANAGE_EXTERNAL_STORAGE.equals(op)
-                && (targetPackageName.equals(packageName) || packageName.isEmpty());
-    }
+              /** 安全地从 MethodHookParam.args 中取字符串，避免 NPE */
+              private static String argStr(XC_MethodHook.MethodHookParam param, int index) {
+                  if (param.args == null || index >= param.args.length || param.args[index] == null) {
+                      return "";
+                  }
+                  return String.valueOf(param.args[index]);
+              }
 
-    /**
-     * 统一读取 hook 参数，避免 null / 越界导致目标进程崩溃。
-     */
-    private static String argStr(XC_MethodHook.MethodHookParam param, int index) {
-        if (param == null || param.args == null || index < 0 || index >= param.args.length) {
-            return "";
-        }
+              private static void log(String message) {
+                  XposedBridge.log(TAG + ": " + message);
+              }
 
-        Object value = param.args[index];
-        if (value == null) {
-            return "";
-        }
-
-        return String.valueOf(value);
-    }
-
-    private static void log(String message) {
-        XposedBridge.log(TAG + ": " + message);
-    }
-
-    private static void log(String message, Throwable throwable) {
-        XposedBridge.log(TAG + ": " + message);
-        XposedBridge.log(throwable);
-    }
-}
-EOF
+              private static void log(String message, Throwable throwable) {
+                  XposedBridge.log(TAG + ": " + message);
+                  XposedBridge.log(throwable);
+              }
+          }
+          EOF
 
       - name: Build APKs
         shell: bash
         run: |
-          set -euo pipefail
           gradle :app:assembleDebug :app:assembleRelease --stacktrace
 
       - name: Collect APKs
         shell: bash
         run: |
-          set -euo pipefail
           mkdir -p out
-          cp app/build/outputs/apk/debug/*.apk out/ || true
+          cp app/build/outputs/apk/debug/*.apk   out/ || true
           cp app/build/outputs/apk/release/*.apk out/ || true
           ls -lah out
 
