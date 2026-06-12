@@ -14,7 +14,6 @@ jobs:
     env:
       MODULE_NAME: FileAccessBypassLSP
       APP_ID: io.github.fileaccess.bypass.lsp
-      TARGET_PACKAGES: com.baidu.netdisk
 
     steps:
       - name: Checkout
@@ -93,8 +92,8 @@ jobs:
                   applicationId "io.github.fileaccess.bypass.lsp"
                   minSdk 23
                   targetSdk 36
-                  versionCode 2
-                  versionName "0.1.1"
+                  versionCode 3
+                  versionName "0.1.2"
               }
 
               buildTypes {
@@ -252,10 +251,6 @@ jobs:
           import android.os.Environment;
 
           import java.io.File;
-          import java.util.Arrays;
-          import java.util.HashSet;
-          import java.util.Set;
-
           import de.robv.android.xposed.IXposedHookLoadPackage;
           import de.robv.android.xposed.XC_MethodHook;
           import de.robv.android.xposed.XposedBridge;
@@ -267,20 +262,13 @@ jobs:
               private static final String MANAGE_EXTERNAL_STORAGE = "android.permission.MANAGE_EXTERNAL_STORAGE";
               private static final String OPSTR_MANAGE_EXTERNAL_STORAGE = "android:manage_external_storage";
 
-              private static final Set<String> TARGET_PACKAGES = new HashSet<>(Arrays.asList(
-                      "com.baidu.netdisk"
-              ));
-
               @Override
               public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) {
                   if (lpparam == null || lpparam.packageName == null) {
                       return;
                   }
 
-                  if (!TARGET_PACKAGES.contains(lpparam.packageName)) {
-                      return;
-                  }
-
+                  // Scope is controlled by LSPosed. Any app selected in LSPosed scope reaches this point.
                   log("enabled for " + lpparam.packageName + " / process=" + lpparam.processName);
 
                   hookEnvironmentChecks();
